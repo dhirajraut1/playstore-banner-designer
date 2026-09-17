@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "./state/store.jsx";
-import { uid } from "./constants.js";
+import { uid, baseObject } from "./constants.js";
 import TopBar from "./components/TopBar.jsx";
 import LeftSidebar from "./components/LeftSidebar.jsx";
 import RightSidebar from "./components/RightSidebar.jsx";
@@ -11,23 +11,88 @@ import { ExportModal, ProjectsModal, PreviewModal } from "./components/Modals.js
 
 export default function App() {
   const {
-    activeCanvas, selection, selectedObject, selectedIsShared, dispatch, deselect,
-    zoom, setZoom, gridSnap, setGridSnap,
-    clipboard, setClipboard, undo, redo, toast,
+    activeCanvas, project, selection, selectedObject, selectedIsShared, dispatch, deselect,
+    zoom, setZoom, gridSnap, setGridSnap, viewMode, setViewMode,
+    clipboard, setClipboard, undo, redo, toast, showToast, select,
   } = useApp();
 
   const scrollRef = useRef(null);
   const [modal, setModal] = useState(null); // 'export' | 'projects' | 'preview' | null
+  const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
   function alignH() {
     if (!selectedObject) return;
-    const x = activeCanvas.width / 2 - (selectedObject.width * (selectedObject.scaleX || 1)) / 2;
+    const isCenterOrigin = selectedObject.type === "circle" || selectedObject.type === "triangle";
+    const x = isCenterOrigin
+      ? activeCanvas.width / 2
+      : activeCanvas.width / 2 - (selectedObject.width * (selectedObject.scaleX || 1)) / 2;
     dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { x } });
   }
+
   function alignV() {
     if (!selectedObject) return;
-    const y = activeCanvas.height / 2 - (selectedObject.height * (selectedObject.scaleY || 1)) / 2;
+    const isCenterOrigin = selectedObject.type === "circle" || selectedObject.type === "triangle";
+    const y = isCenterOrigin
+      ? activeCanvas.height / 2
+      : activeCanvas.height / 2 - (selectedObject.height * (selectedObject.scaleY || 1)) / 2;
     dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { y } });
+  }
+
+  // Prevent browser from opening dropped files anywhere on the page
+  useEffect(() => {
+    function onWindowDragOver(e) { e.preventDefault(); }
+    function onWindowDrop(e) { e.preventDefault(); }
+    window.addEventListener("dragover", onWindowDragOver);
+    window.addEventListener("drop", onWindowDrop);
+    return () => {
+      window.removeEventListener("dragover", onWindowDragOver);
+      window.removeEventListener("drop", onWindowDrop);
+    };
+  }, []);
+
+  function handleCanvasDrop(e) {
+    e.preventDefault();
+    setIsDragOverCanvas(false);
+    const files = e.dataTransfer.files;
+    if (!files || !files.length) return;
+
+    [...files].forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const dataUrl = evt.target.result;
+        // If a device is currently selected, drop into that device
+        if (selectedObject && selectedObject.type === "device") {
+          dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { imageSrc: dataUrl } });
+          showToast("Screenshot applied to device mockup");
+          return;
+        }
+        // Otherwise add as new image object centered
+        const img = new window.Image();
+        img.onload = () => {
+          const maxW = activeCanvas.width * 0.6;
+          const scale = Math.min(1, maxW / img.width);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          const newObj = baseObject(
+            {
+              type: "image",
+              x: (activeCanvas.width - w) / 2,
+              y: (activeCanvas.height - h) / 2,
+              width: w,
+              height: h,
+              imageSrc: dataUrl,
+            },
+            activeCanvas
+          );
+          dispatch({ type: "ADD_OBJECT", obj: newObj });
+          select(newObj.id, false);
+          showToast("Image added to canvas");
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   useEffect(() => {
@@ -93,31 +158,71 @@ export default function App() {
         <LeftSidebar />
         <div id="center">
           <div id="canvas-toolbar">
-            <button className="icon-btn" title="Zoom out" onClick={() => setZoom((z) => Math.max(0.15, z - 0.1))}>
+            <button type="button" className="icon-btn" title="Zoom out" onClick={() => setZoom((z) => Math.max(0.15, z - 0.1))}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M8 11h6" /></svg>
             </button>
             <div className="zoom-readout">{Math.round(zoom * 100)}%</div>
-            <button className="icon-btn" title="Zoom in" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}>
+            <button type="button" className="icon-btn" title="Zoom in" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" /></svg>
             </button>
-            <button className="icon-btn" title="Fit to screen" onClick={() => setZoom(1)}>
+            <button type="button" className="icon-btn" title="Fit to view" onClick={() => setZoom(1)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
             </button>
             <div className="topbar-sep" />
-            <div className={"pill-toggle" + (gridSnap ? " on" : "")} onClick={() => setGridSnap((v) => !v)}>
+            <div
+              className={"pill-toggle" + (gridSnap ? " on" : "")}
+              tabIndex={0}
+              role="switch"
+              aria-checked={gridSnap}
+              onClick={() => setGridSnap((v) => !v)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setGridSnap((v) => !v); } }}
+            >
               <div className="switch" />Snap to grid
             </div>
+
+            {/* View Mode Switcher: Single vs Panorama */}
+            <div className="seg" style={{ marginLeft: 8 }}>
+              <button
+                type="button"
+                className={viewMode === "single" ? "active" : ""}
+                onClick={() => setViewMode("single")}
+                title="View active screen"
+              >
+                Single Screen
+              </button>
+              <button
+                type="button"
+                className={viewMode === "panorama" ? "active" : ""}
+                onClick={() => setViewMode("panorama")}
+                title="View all screens connected side-by-side"
+              >
+                Panorama Strip
+              </button>
+            </div>
+
             <div className="spacer" />
-            <button className="icon-btn" title="Center horizontally" onClick={alignH} disabled={!selectedObject}>
+            <button type="button" className="icon-btn" title="Center horizontally" onClick={alignH} disabled={!selectedObject}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20" /><rect x="7" y="6" width="10" height="5" rx="1" /><rect x="4" y="14" width="16" height="5" rx="1" /></svg>
             </button>
-            <button className="icon-btn" title="Center vertically" onClick={alignV} disabled={!selectedObject}>
+            <button type="button" className="icon-btn" title="Center vertically" onClick={alignV} disabled={!selectedObject}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20" /><rect x="6" y="7" width="5" height="10" rx="1" /><rect x="14" y="4" width="5" height="16" rx="1" /></svg>
             </button>
           </div>
-          <div id="stage-scroll" ref={scrollRef}>
+
+          <div
+            id="stage-scroll"
+            ref={scrollRef}
+            className={isDragOverCanvas ? "drag-target-active" : ""}
+            onDragOver={(e) => { e.preventDefault(); setIsDragOverCanvas(true); }}
+            onDragLeave={() => setIsDragOverCanvas(false)}
+            onDrop={handleCanvasDrop}
+          >
             <div id="stage-wrap">
-              <div className="canvas-label">{activeCanvas.name} — {activeCanvas.width}×{activeCanvas.height}</div>
+              <div className="canvas-label">
+                {viewMode === "panorama"
+                  ? `Panorama Flow — ${project.canvases.length} screens continuous strip`
+                  : `${activeCanvas.name} — ${activeCanvas.width}×${activeCanvas.height}`}
+              </div>
               <CanvasStage containerRef={scrollRef} />
             </div>
           </div>

@@ -2,38 +2,40 @@ import React from "react";
 import { Stage, Layer, Rect } from "react-konva";
 import { useApp } from "../state/store.jsx";
 import CanvasObjectNode from "./CanvasObjectNode.jsx";
+import { getCanvasBackgroundConfig, getCanvasRenderObjects } from "../utils/flowLayout.js";
 
 function noop() {}
 const NO_HANDLERS = { onSelect: noop, onDragMove: noop, onDragEnd: noop, onTransformEnd: noop };
-
-function bgConfigForExport(project, canvas) {
-  return project.connectBackground ? project.globalBackground : canvas.background;
-}
 
 function ExportBackground({ cfg, width, height }) {
   if (!cfg) return null;
   if (cfg.type === "solid") return <Rect x={0} y={0} width={width} height={height} fill={cfg.color || "#222"} />;
   const rad = ((cfg.angle || 90) * Math.PI) / 180;
+  const len = Math.max(width, height);
+  const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
+  const startPoint = cfg.startPoint || { x: width / 2 - dx, y: height / 2 - dy };
+  const endPoint = cfg.endPoint || { x: width / 2 + dx, y: height / 2 + dy };
+
   if (cfg.type === "linear") {
-    const len = Math.max(width, height);
-    const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
     return (
       <Rect
         x={0} y={0} width={width} height={height}
-        fillLinearGradientStartPoint={{ x: width / 2 - dx, y: height / 2 - dy }}
-        fillLinearGradientEndPoint={{ x: width / 2 + dx, y: height / 2 + dy }}
-        fillLinearGradientColorStops={[0, cfg.color1, 1, cfg.color2]}
+        fillLinearGradientStartPoint={startPoint}
+        fillLinearGradientEndPoint={endPoint}
+        fillLinearGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
       />
     );
   }
+  const radStart = cfg.startPoint || { x: width / 2, y: height / 2 };
+  const radEnd = cfg.endPoint || { x: width / 2, y: height / 2 };
   return (
     <Rect
       x={0} y={0} width={width} height={height}
-      fillRadialGradientStartPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientEndPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientStartRadius={0}
-      fillRadialGradientEndRadius={Math.max(width, height) / 1.3}
-      fillRadialGradientColorStops={[0, cfg.color1, 1, cfg.color2]}
+      fillRadialGradientStartPoint={radStart}
+      fillRadialGradientEndPoint={radEnd}
+      fillRadialGradientStartRadius={cfg.startRadius || 0}
+      fillRadialGradientEndRadius={cfg.endRadius || Math.max(width, height) / 1.3}
+      fillRadialGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
     />
   );
 }
@@ -43,8 +45,10 @@ export default function ExportHiddenStages() {
 
   return (
     <div style={{ position: "fixed", left: -100000, top: 0, pointerEvents: "none" }} aria-hidden="true">
-      {project.canvases.map((c) => {
-        const cfg = bgConfigForExport(project, c);
+      {project.canvases.map((c, i) => {
+        const cfg = getCanvasBackgroundConfig(i, project);
+        const { localObjects, overflowObjects, sharedObjects } = getCanvasRenderObjects(i, project);
+
         return (
           <Stage
             key={c.id}
@@ -59,10 +63,13 @@ export default function ExportHiddenStages() {
               <ExportBackground cfg={cfg} width={c.width} height={c.height} />
             </Layer>
             <Layer listening={false}>
-              {c.objects.map((obj) => (
+              {overflowObjects.map((obj) => (
                 <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
               ))}
-              {project.sharedObjects.map((obj) => (
+              {localObjects.map((obj) => (
+                <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
+              ))}
+              {sharedObjects.map((obj) => (
                 <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
               ))}
             </Layer>

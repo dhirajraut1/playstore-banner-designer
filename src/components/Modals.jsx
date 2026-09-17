@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import JSZip from "jszip";
 import { Stage, Layer, Rect } from "react-konva";
 import { useApp } from "../state/store.jsx";
-import { bgConfigFor } from "./CanvasStage.jsx";
 import CanvasObjectNode from "./CanvasObjectNode.jsx";
+import { getCanvasBackgroundConfig, getCanvasRenderObjects } from "../utils/flowLayout.js";
 
 function noop() {}
 const NO_HANDLERS = { onSelect: noop, onDragMove: noop, onDragEnd: noop, onTransformEnd: noop };
@@ -17,6 +17,7 @@ function dataURLtoBlob(dataurl) {
   while (n--) u8[n] = bstr.charCodeAt(n);
   return new Blob([u8], { type: mime });
 }
+
 function downloadDataUrl(uri, filename) {
   const a = document.createElement("a");
   a.href = uri;
@@ -35,7 +36,7 @@ export function ExportModal({ onClose }) {
 
   async function runExport() {
     setBusy(true);
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 40));
     try {
       if (scope === "current") {
         const node = exportRefs.current[activeCanvas.id];
@@ -47,8 +48,9 @@ export function ExportModal({ onClose }) {
         project.canvases.forEach((c, i) => {
           const node = exportRefs.current[c.id];
           if (!node) return;
-          const uri = node.toDataURL({ pixelRatio: scale, mimeType: "image/png" });
-          zip.file(`${String(i + 1).padStart(2, "0")}_${c.name.replace(/\s+/g, "_")}.png`, dataURLtoBlob(uri));
+          const uri = node.toDataURL({ pixelRatio: scale, mimeType: format === "jpg" ? "image/jpeg" : "image/png" });
+          const ext = format === "jpg" ? "jpg" : "png";
+          zip.file(`${String(i + 1).padStart(2, "0")}_${c.name.replace(/\s+/g, "_")}.${ext}`, dataURLtoBlob(uri));
         });
         const content = await zip.generateAsync({ type: "blob" });
         downloadDataUrl(URL.createObjectURL(content), `${project.name.replace(/\s+/g, "_")}.zip`);
@@ -65,32 +67,34 @@ export function ExportModal({ onClose }) {
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
-        <h3>Export</h3>
+        <h3>Export banners</h3>
         <div className="field">
           <label>Scope</label>
           <select value={scope} onChange={(e) => setScope(e.target.value)}>
-            <option value="current">Current screen</option>
-            <option value="all">Entire project (ZIP)</option>
+            <option value="current">Current screen ({activeCanvas.name})</option>
+            <option value="all">All {project.canvases.length} screens (ZIP bundle)</option>
           </select>
         </div>
         <div className="field" style={{ marginTop: 10 }}>
           <label>Format</label>
-          <select value={format} onChange={(e) => setFormat(e.target.value)} disabled={scope === "all"}>
-            <option value="png">PNG</option>
-            <option value="jpg">JPG</option>
+          <select value={format} onChange={(e) => setFormat(e.target.value)}>
+            <option value="png">PNG (Lossless)</option>
+            <option value="jpg">JPG (Smaller size)</option>
           </select>
         </div>
         <div className="field" style={{ marginTop: 10 }}>
-          <label>Resolution</label>
+          <label>Resolution scale</label>
           <div className="seg">
             {[1, 2, 3].map((v) => (
-              <button key={v} className={scale === v ? "active" : ""} onClick={() => setScale(v)}>{v}×</button>
+              <button key={v} type="button" className={scale === v ? "active" : ""} onClick={() => setScale(v)}>{v}×</button>
             ))}
           </div>
         </div>
         <div className="modal-actions">
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={runExport} disabled={busy}>{busy ? "Exporting…" : "Export"}</button>
+          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn primary" onClick={runExport} disabled={busy}>
+            {busy ? "Exporting…" : "Export"}
+          </button>
         </div>
       </div>
     </div>
@@ -119,6 +123,7 @@ export function ProjectsModal({ onClose }) {
                 <div className="pmeta">{new Date(p.updated).toLocaleString()}</div>
               </div>
               <button
+                type="button"
                 className="layer-btn"
                 onClick={(e) => { e.stopPropagation(); deleteSavedProject(id); setTick((t) => t + 1); }}
               >
@@ -128,7 +133,7 @@ export function ProjectsModal({ onClose }) {
           ))}
         </div>
         <div className="modal-actions">
-          <button className="btn" onClick={onClose}>Close</button>
+          <button type="button" className="btn" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -139,43 +144,51 @@ function ThumbBg({ cfg, width, height }) {
   if (!cfg) return null;
   if (cfg.type === "solid") return <Rect x={0} y={0} width={width} height={height} fill={cfg.color || "#222"} />;
   const rad = ((cfg.angle || 90) * Math.PI) / 180;
+  const len = Math.max(width, height);
+  const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
+  const startPoint = cfg.startPoint || { x: width / 2 - dx, y: height / 2 - dy };
+  const endPoint = cfg.endPoint || { x: width / 2 + dx, y: height / 2 + dy };
+
   if (cfg.type === "linear") {
-    const len = Math.max(width, height);
-    const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
     return (
       <Rect
         x={0} y={0} width={width} height={height}
-        fillLinearGradientStartPoint={{ x: width / 2 - dx, y: height / 2 - dy }}
-        fillLinearGradientEndPoint={{ x: width / 2 + dx, y: height / 2 + dy }}
-        fillLinearGradientColorStops={[0, cfg.color1, 1, cfg.color2]}
+        fillLinearGradientStartPoint={startPoint}
+        fillLinearGradientEndPoint={endPoint}
+        fillLinearGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
       />
     );
   }
+  const radStart = cfg.startPoint || { x: width / 2, y: height / 2 };
+  const radEnd = cfg.endPoint || { x: width / 2, y: height / 2 };
   return (
     <Rect
       x={0} y={0} width={width} height={height}
-      fillRadialGradientStartPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientEndPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientStartRadius={0}
-      fillRadialGradientEndRadius={Math.max(width, height) / 1.3}
-      fillRadialGradientColorStops={[0, cfg.color1, 1, cfg.color2]}
+      fillRadialGradientStartPoint={radStart}
+      fillRadialGradientEndPoint={radEnd}
+      fillRadialGradientStartRadius={cfg.startRadius || 0}
+      fillRadialGradientEndRadius={cfg.endRadius || Math.max(width, height) / 1.3}
+      fillRadialGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
     />
   );
 }
 
-function PreviewThumb({ canvas, project }) {
+function PreviewThumb({ canvas, index, project }) {
   const w = 130;
   const h = Math.round(w * (canvas.height / canvas.width));
   const scale = w / canvas.width;
-  const cfg = bgConfigFor(project, canvas);
+  const cfg = getCanvasBackgroundConfig(index, project);
+  const { localObjects, overflowObjects, sharedObjects } = getCanvasRenderObjects(index, project);
+
   return (
     <div style={{ flex: "0 0 auto", textAlign: "center" }}>
-      <div style={{ width: w, height: h, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+      <div style={{ width: w, height: h, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)", background: "#16181e" }}>
         <Stage width={w} height={h} scaleX={scale} scaleY={scale} listening={false}>
           <Layer listening={false}>
             <ThumbBg cfg={cfg} width={canvas.width} height={canvas.height} />
-            {canvas.objects.map((obj) => <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />)}
-            {project.sharedObjects.map((obj) => <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />)}
+            {overflowObjects.map((obj) => <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />)}
+            {localObjects.map((obj) => <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />)}
+            {sharedObjects.map((obj) => <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />)}
           </Layer>
         </Stage>
       </div>
@@ -186,15 +199,19 @@ function PreviewThumb({ canvas, project }) {
 
 export function PreviewModal({ onClose }) {
   const { project } = useApp();
+  const count = project.canvases.length;
+
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ width: "auto", maxWidth: "90vw" }}>
-        <h3>Preview — both screens</h3>
-        <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "6px 0 4px", maxWidth: "80vw" }}>
-          {project.canvases.map((c) => <PreviewThumb key={c.id} canvas={c} project={project} />)}
+      <div className="modal" style={{ width: "auto", maxWidth: "92vw" }}>
+        <h3>Preview — {count} {count === 1 ? "screen" : "screens (continuous flow)"}</h3>
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "8px 2px", maxWidth: "86vw" }}>
+          {project.canvases.map((c, i) => (
+            <PreviewThumb key={c.id} canvas={c} index={i} project={project} />
+          ))}
         </div>
         <div className="modal-actions">
-          <button className="btn primary" onClick={onClose}>Close</button>
+          <button type="button" className="btn primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

@@ -140,11 +140,40 @@ function reducer(state, action) {
       return { ...state, project: { ...project, canvases } };
     }
 
+    case "REORDER_CANVAS": {
+      const { fromIndex, toIndex } = action;
+      if (
+        fromIndex < 0 ||
+        fromIndex >= project.canvases.length ||
+        toIndex < 0 ||
+        toIndex >= project.canvases.length ||
+        fromIndex === toIndex
+      ) {
+        return state;
+      }
+      const canvases = [...project.canvases];
+      const [moved] = canvases.splice(fromIndex, 1);
+      canvases.splice(toIndex, 0, moved);
+      let newActive = activeIndex;
+      if (activeIndex === fromIndex) {
+        newActive = toIndex;
+      } else if (fromIndex < activeIndex && toIndex >= activeIndex) {
+        newActive -= 1;
+      } else if (fromIndex > activeIndex && toIndex <= activeIndex) {
+        newActive += 1;
+      }
+      return { ...state, project: { ...project, canvases }, activeIndex: newActive };
+    }
+
     case "REORDER_OBJECT": {
       const arr = action.shared ? project.sharedObjects : project.canvases[activeIndex].objects;
       const idx = arr.findIndex((o) => o.id === action.id);
-      const newIdx = idx + action.dir;
-      if (idx < 0 || newIdx < 0 || newIdx >= arr.length) return state;
+      if (idx < 0) return state;
+      let newIdx = idx;
+      if (action.to === "top") newIdx = arr.length - 1;
+      else if (action.to === "bottom") newIdx = 0;
+      else if (action.dir !== undefined) newIdx = idx + action.dir;
+      if (newIdx < 0 || newIdx >= arr.length || newIdx === idx) return state;
       const copy = [...arr];
       const [item] = copy.splice(idx, 1);
       copy.splice(newIdx, 0, item);
@@ -191,6 +220,9 @@ function reducer(state, action) {
         activeIndex: 0,
       };
     }
+
+    case "COMMIT":
+      return { ...state };
 
     case "NOOP":
       return state;
@@ -264,6 +296,7 @@ export function AppProvider({ children }) {
   const [selection, setSelection] = useState(null); // {id, shared} | null
   const [zoom, setZoom] = useState(1);
   const [gridSnap, setGridSnap] = useState(false);
+  const [viewMode, setViewMode] = useState("single"); // 'single' | 'panorama'
   const [clipboard, setClipboard] = useState(null);
   const [toast, setToastState] = useState("");
   const [savedText, setSavedText] = useState("Saved locally");
@@ -348,6 +381,7 @@ export function AppProvider({ children }) {
     dispatch, ...history,
     selection, selectedObject, selectedIsShared, select, deselect,
     zoom, setZoom, gridSnap, setGridSnap,
+    viewMode, setViewMode,
     clipboard, setClipboard,
     toast, showToast, savedText,
     listSavedProjects, deleteSavedProject, loadProject, startNewProject,

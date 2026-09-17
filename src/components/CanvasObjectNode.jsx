@@ -50,28 +50,45 @@ function roundRectClip(ctx, x, y, w, h, r) {
 const DeviceMockup = forwardRef(function DeviceMockup({ obj, handlers }, ref) {
   const w = obj.width, h = obj.height;
   const frameColor = obj.frameColor || "#0B1220";
-  const radius = w * 0.11;
-  const bezel = w * 0.045;
+  const isTablet = obj.style === "tablet-plain";
+  const radius = isTablet ? w * 0.06 : w * 0.11;
+  const bezel = isTablet ? w * 0.035 : w * 0.045;
   const img = useHtmlImage(obj.imageSrc);
+
+  const containerW = Math.max(10, w - bezel * 2);
+  const containerH = Math.max(10, h - bezel * 2);
+
+  let imgX = bezel, imgY = bezel, imgW = containerW, imgH = containerH;
+  if (img && img.width && img.height) {
+    const scale = Math.max(containerW / img.width, containerH / img.height);
+    imgW = img.width * scale;
+    imgH = img.height * scale;
+    imgX = bezel + (containerW - imgW) / 2;
+    imgY = bezel + (containerH - imgH) / 2;
+  }
+
   return (
     <Group ref={ref} {...commonProps(obj, handlers)}>
       <Rect x={0} y={0} width={w} height={h} cornerRadius={radius} fill={frameColor} {...shadowProps(obj)} />
-      <Group clipFunc={(ctx) => roundRectClip(ctx, bezel, bezel, w - bezel * 2, h - bezel * 2, radius * 0.6)}>
-        <Rect x={bezel} y={bezel} width={w - bezel * 2} height={h - bezel * 2} fill="#dfe3ea" />
+      <Group clipFunc={(ctx) => roundRectClip(ctx, bezel, bezel, containerW, containerH, radius * 0.6)}>
+        <Rect x={bezel} y={bezel} width={containerW} height={containerH} fill="#dfe3ea" />
         {img ? (
-          <KImage x={bezel} y={bezel} image={img} width={w - bezel * 2} height={h - bezel * 2} />
+          <KImage x={imgX} y={imgY} image={img} width={imgW} height={imgH} />
         ) : (
           <Text
-            x={bezel} y={h / 2 - 10} width={w - bezel * 2} align="center"
+            x={bezel + 10} y={h / 2 - 14} width={containerW - 20} align="center"
             text="Drop a screenshot" fontSize={Math.max(12, w * 0.045)} fill="#8a93a3" fontFamily="Inter"
           />
         )}
       </Group>
       {obj.style === "phone-notch" && (
         <Rect
-          x={(w - w * 0.34) / 2} y={bezel * 0.4} width={w * 0.34} height={Math.max(6, h * 0.018 * 3)}
+          x={(w - w * 0.34) / 2} y={bezel * 0.35} width={w * 0.34} height={Math.max(6, h * 0.018 * 3)}
           cornerRadius={20} fill={frameColor}
         />
+      )}
+      {isTablet && (
+        <Ellipse x={w / 2} y={bezel * 0.5} radiusX={3.5} radiusY={3.5} fill="#3b4252" />
       )}
     </Group>
   );
@@ -105,6 +122,26 @@ const CanvasObjectNode = forwardRef(function CanvasObjectNode({ obj, handlers },
         />
       );
     case "text":
+      if (obj.highlightOn) {
+        return (
+          <Group ref={ref} {...props}>
+            <Rect
+              x={-8} y={-4}
+              width={obj.width + 16}
+              height={Math.max(obj.height || 40, (obj.fontSize || 48) * (obj.lineHeight || 1.15) + 12)}
+              fill={obj.highlightColor || "rgba(0,0,0,0.65)"}
+              cornerRadius={8}
+            />
+            <Text
+              x={0} y={0}
+              text={obj.text} fontFamily={obj.fontFamily || "Inter"} fontSize={obj.fontSize || 48}
+              fontStyle={obj.fontWeight >= 700 ? "bold" : "normal"} fill={obj.fill || "#ffffff"} align={obj.align || "left"}
+              width={obj.width} letterSpacing={obj.letterSpacing || 0} lineHeight={obj.lineHeight || 1.15}
+              stroke={obj.strokeOn ? obj.stroke : undefined} strokeWidth={obj.strokeOn ? obj.strokeWidth || 2 : 0}
+            />
+          </Group>
+        );
+      }
       return (
         <Text
           ref={ref} {...props} text={obj.text} fontFamily={obj.fontFamily || "Inter"} fontSize={obj.fontSize || 48}

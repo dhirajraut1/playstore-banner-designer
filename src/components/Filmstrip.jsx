@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Stage, Layer, Rect } from "react-konva";
 import { useApp } from "../state/store.jsx";
-import { MAX_SCREENS, CANVAS_PRESETS, uid } from "../constants.js";
+import { MAX_SCREENS, CANVAS_PRESETS } from "../constants.js";
 import CanvasObjectNode from "./CanvasObjectNode.jsx";
-import { bgConfigFor } from "./CanvasStage.jsx";
+import { getCanvasBackgroundConfig, getCanvasRenderObjects } from "../utils/flowLayout.js";
 
-const THUMB_W = 56;
+const THUMB_W = 60;
 
 function noop() {}
 const NO_HANDLERS = { onSelect: noop, onDragMove: noop, onDragEnd: noop, onTransformEnd: noop };
@@ -14,37 +14,52 @@ function ThumbBackground({ cfg, width, height }) {
   if (!cfg) return null;
   if (cfg.type === "solid") return <Rect x={0} y={0} width={width} height={height} fill={cfg.color || "#222"} />;
   const rad = ((cfg.angle || 90) * Math.PI) / 180;
+  const len = Math.max(width, height);
+  const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
+  const startPoint = cfg.startPoint || { x: width / 2 - dx, y: height / 2 - dy };
+  const endPoint = cfg.endPoint || { x: width / 2 + dx, y: height / 2 + dy };
+
   if (cfg.type === "linear") {
-    const len = Math.max(width, height);
-    const dx = (Math.cos(rad) * len) / 2, dy = (Math.sin(rad) * len) / 2;
     return (
-      <Rect x={0} y={0} width={width} height={height}
-        fillLinearGradientStartPoint={{ x: width / 2 - dx, y: height / 2 - dy }}
-        fillLinearGradientEndPoint={{ x: width / 2 + dx, y: height / 2 + dy }}
-        fillLinearGradientColorStops={[0, cfg.color1, 1, cfg.color2]} />
+      <Rect
+        x={0} y={0} width={width} height={height}
+        fillLinearGradientStartPoint={startPoint}
+        fillLinearGradientEndPoint={endPoint}
+        fillLinearGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
+      />
     );
   }
+  const radStart = cfg.startPoint || { x: width / 2, y: height / 2 };
+  const radEnd = cfg.endPoint || { x: width / 2, y: height / 2 };
   return (
-    <Rect x={0} y={0} width={width} height={height}
-      fillRadialGradientStartPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientEndPoint={{ x: width / 2, y: height / 2 }}
-      fillRadialGradientStartRadius={0} fillRadialGradientEndRadius={Math.max(width, height) / 1.3}
-      fillRadialGradientColorStops={[0, cfg.color1, 1, cfg.color2]} />
+    <Rect
+      x={0} y={0} width={width} height={height}
+      fillRadialGradientStartPoint={radStart}
+      fillRadialGradientEndPoint={radEnd}
+      fillRadialGradientStartRadius={cfg.startRadius || 0}
+      fillRadialGradientEndRadius={cfg.endRadius || Math.max(width, height) / 1.3}
+      fillRadialGradientColorStops={[0, cfg.color1 || "#0F2027", 1, cfg.color2 || "#2C5364"]}
+    />
   );
 }
 
-function Thumbnail({ canvas, project }) {
+function Thumbnail({ canvas, index, project }) {
   const h = Math.round(THUMB_W * (canvas.height / canvas.width));
   const scale = THUMB_W / canvas.width;
-  const cfg = bgConfigFor(project, canvas);
+  const cfg = getCanvasBackgroundConfig(index, project);
+  const { localObjects, overflowObjects, sharedObjects } = getCanvasRenderObjects(index, project);
+
   return (
     <Stage width={THUMB_W} height={h} scaleX={scale} scaleY={scale} listening={false}>
       <Layer listening={false}>
         <ThumbBackground cfg={cfg} width={canvas.width} height={canvas.height} />
-        {canvas.objects.map((obj) => (
+        {overflowObjects.map((obj) => (
           <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
         ))}
-        {project.sharedObjects.map((obj) => (
+        {localObjects.map((obj) => (
+          <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
+        ))}
+        {sharedObjects.map((obj) => (
           <CanvasObjectNode key={obj.id} obj={obj} handlers={NO_HANDLERS} />
         ))}
       </Layer>
@@ -55,11 +70,14 @@ function Thumbnail({ canvas, project }) {
 export default function Filmstrip() {
   const { project, activeIndex, dispatch, showToast, deselect } = useApp();
   const [addOpen, setAddOpen] = useState(false);
+  const [renamingIndex, setRenamingIndex] = useState(null);
+  const [renameText, setRenameText] = useState("");
 
   function switchCanvas(i) {
     deselect();
     dispatch({ type: "SWITCH_CANVAS", index: i }, { commit: false });
   }
+
   function addCanvas(preset) {
     if (project.canvases.length >= MAX_SCREENS) {
       showToast(`A project can have up to ${MAX_SCREENS} screens`);
@@ -70,6 +88,7 @@ export default function Filmstrip() {
     dispatch({ type: "ADD_CANVAS", preset });
     setAddOpen(false);
   }
+
   function duplicateCanvas(i) {
     if (project.canvases.length >= MAX_SCREENS) {
       showToast(`A project can have up to ${MAX_SCREENS} screens`);
@@ -77,8 +96,9 @@ export default function Filmstrip() {
     }
     deselect();
     dispatch({ type: "DUPLICATE_CANVAS", index: i });
-    showToast("Screen duplicated — elements marked “sync across screens” stay linked automatically");
+    showToast("Screen duplicated");
   }
+
   function deleteCanvas(i) {
     if (project.canvases.length <= 1) {
       showToast("A project needs at least one screen");
@@ -87,24 +107,45 @@ export default function Filmstrip() {
     deselect();
     dispatch({ type: "DELETE_CANVAS", index: i });
   }
-  function renameCanvas(i, name) {
-    dispatch({ type: "RENAME_CANVAS", index: i, name });
+
+  function moveCanvas(fromIndex, toIndex) {
+    if (toIndex < 0 || toIndex >= project.canvases.length) return;
+    dispatch({ type: "REORDER_CANVAS", fromIndex, toIndex });
   }
+
+  function startRename(i, currentName) {
+    setRenamingIndex(i);
+    setRenameText(currentName);
+  }
+
+  function saveRename() {
+    if (renamingIndex !== null && renameText.trim()) {
+      dispatch({ type: "RENAME_CANVAS", index: renamingIndex, name: renameText.trim() });
+    }
+    setRenamingIndex(null);
+  }
+
   function toggleFlow() {
     dispatch({ type: "TOGGLE_CONNECT_BACKGROUND" });
     showToast(
       !project.connectBackground
-        ? "Backgrounds now flow continuously across screens"
+        ? "Backgrounds now flow continuously across all screens"
         : "Screens now have independent backgrounds"
     );
   }
 
   return (
     <div id="filmstrip-bar">
-      <div className={"flow-toggle" + (project.connectBackground ? " on" : "")} onClick={toggleFlow} title="Flow the background gradient continuously across screens">
+      <button
+        type="button"
+        className={"flow-toggle" + (project.connectBackground ? " on" : "")}
+        onClick={toggleFlow}
+        title="Flow the background gradient continuously across all screens"
+        aria-pressed={project.connectBackground}
+      >
         <div className="flow-dots"><span /><span /><span /></div>
         <div className="ft-label">Connect flow</div>
-      </div>
+      </button>
 
       <div id="filmstrip">
         {project.canvases.map((c, i) => (
@@ -112,36 +153,85 @@ export default function Filmstrip() {
             {i > 0 && <div className={"fs-connector" + (project.connectBackground ? " on" : "")} />}
             <div className={"fs-item" + (i === activeIndex ? " active" : "")}>
               <div className="fs-thumb" onClick={() => switchCanvas(i)}>
-                <Thumbnail canvas={c} project={project} />
-                <button
-                  className="fs-dup"
-                  title="Duplicate this banner's layout to a new screen"
-                  onClick={(e) => { e.stopPropagation(); duplicateCanvas(i); }}
-                >
-                  ⧉
-                </button>
-                <button
-                  className="fs-del"
-                  title="Delete screen"
-                  onClick={(e) => { e.stopPropagation(); deleteCanvas(i); }}
-                >
-                  ✕
-                </button>
+                <Thumbnail canvas={c} index={i} project={project} />
+
+                {/* Filmstrip action overlay */}
+                <div className="fs-overlay" onClick={(e) => e.stopPropagation()}>
+                  <div className="fs-actions-top">
+                    <button
+                      type="button"
+                      className="fs-act-btn fs-dup-btn"
+                      title="Duplicate screen"
+                      onClick={() => duplicateCanvas(i)}
+                    >
+                      ⧉
+                    </button>
+                    <button
+                      type="button"
+                      className="fs-act-btn fs-del-btn"
+                      title="Delete screen"
+                      onClick={() => deleteCanvas(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="fs-actions-bottom">
+                    <button
+                      type="button"
+                      className="fs-act-btn"
+                      title="Move screen left"
+                      disabled={i === 0}
+                      onClick={() => moveCanvas(i, i - 1)}
+                    >
+                      ◀
+                    </button>
+                    <button
+                      type="button"
+                      className="fs-act-btn"
+                      title="Move screen right"
+                      disabled={i === project.canvases.length - 1}
+                      onClick={() => moveCanvas(i, i + 1)}
+                    >
+                      ▶
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div
-                className="fs-name"
-                onDoubleClick={() => {
-                  const nn = prompt("Rename screen", c.name);
-                  if (nn) renameCanvas(i, nn);
-                }}
-              >
-                {c.name}
-              </div>
+
+              {/* Screen name with inline edit */}
+              {renamingIndex === i ? (
+                <input
+                  type="text"
+                  className="fs-name-input"
+                  value={renameText}
+                  autoFocus
+                  onChange={(e) => setRenameText(e.target.value)}
+                  onBlur={saveRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRename();
+                    if (e.key === "Escape") setRenamingIndex(null);
+                  }}
+                />
+              ) : (
+                <div
+                  className="fs-name"
+                  title="Double click to rename"
+                  onDoubleClick={() => startRename(i, c.name)}
+                >
+                  {c.name}
+                </div>
+              )}
             </div>
           </React.Fragment>
         ))}
+
         {project.canvases.length < MAX_SCREENS && (
-          <button className="fs-add" title={`Add screen (up to ${MAX_SCREENS})`} onClick={() => setAddOpen(true)}>
+          <button
+            type="button"
+            className="fs-add"
+            title={`Add screen (up to ${MAX_SCREENS})`}
+            onClick={() => setAddOpen(true)}
+          >
             +
           </button>
         )}
@@ -158,7 +248,7 @@ export default function Filmstrip() {
               </div>
             ))}
             <div className="modal-actions">
-              <button className="btn" onClick={() => setAddOpen(false)}>Cancel</button>
+              <button type="button" className="btn" onClick={() => setAddOpen(false)}>Cancel</button>
             </div>
           </div>
         </div>

@@ -209,7 +209,7 @@ export default function LeftSidebar() {
                   if (fx === "shadow") dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { shadow: { on: true, color: "#000000", blur: 14, x: 0, y: 6, opacity: 0.5 } } });
                   if (fx === "stroke") dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { strokeOn: true, stroke: "#000000", strokeWidth: 3 } });
                   if (fx === "glow") dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { shadow: { on: true, color: "#29D398", blur: 26, x: 0, y: 0, opacity: 0.85 } } });
-                  if (fx === "highlight") showToast("Tip: add a rectangle behind the text and lower its opacity for a highlight block");
+                  if (fx === "highlight") dispatch({ type: "PATCH_OBJECT", id: selectedObject.id, shared: selectedIsShared, patch: { highlightOn: true, highlightColor: "rgba(0,0,0,0.65)" } });
                 }}
               >
                 <div className="tpl-name">{name}</div>
@@ -246,10 +246,20 @@ export default function LeftSidebar() {
         {tab === "uploads" && (
           <div className="panel-scroll">
             <div className="section-title">Upload images</div>
-            <div className="upload-zone" onClick={() => document.getElementById("file-input").click()}>
+            <div
+              className="upload-zone"
+              onClick={() => document.getElementById("file-input").click()}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files && e.dataTransfer.files.length) {
+                  handleFiles(e.dataTransfer.files);
+                }
+              }}
+            >
               Click to upload PNG / JPG
               <br />
-              or drag files onto the canvas
+              or drag files here / onto canvas
             </div>
             <input id="file-input" type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
             <div className="upload-thumb-grid">
@@ -336,8 +346,24 @@ function BackgroundPanel() {
           <div className="field">
             <label>Color</label>
             <div className="color-field">
-              <input type="color" value={cfg.color || "#222222"} onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color: e.target.value } }, { commit: false })} onBlur={() => dispatch({ type: "NOOP" })} />
-              <input type="text" value={cfg.color || "#222222"} readOnly />
+              <input
+                type="color"
+                value={cfg.color || "#222222"}
+                onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color: e.target.value } }, { commit: false })}
+                onBlur={() => dispatch({ type: "COMMIT" })}
+              />
+              <input
+                type="text"
+                value={cfg.color || "#222222"}
+                spellCheck={false}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (/^#[0-9a-fA-F]{6}$/.test(val) || /^#[0-9a-fA-F]{3}$/.test(val)) {
+                    dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color: val } }, { commit: false });
+                  }
+                }}
+                onBlur={() => dispatch({ type: "COMMIT" })}
+              />
             </div>
           </div>
         ) : (
@@ -345,18 +371,63 @@ function BackgroundPanel() {
             <div className="field-row">
               <div className="field">
                 <label>Color 1</label>
-                <input type="color" value={cfg.color1} onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color1: e.target.value } }, { commit: false })} onBlur={() => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color1: cfg.color1 } })} />
+                <div className="color-field">
+                  <input
+                    type="color"
+                    value={cfg.color1 || "#0F2027"}
+                    onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color1: e.target.value } }, { commit: false })}
+                    onBlur={() => dispatch({ type: "COMMIT" })}
+                  />
+                  <input
+                    type="text"
+                    value={cfg.color1 || "#0F2027"}
+                    spellCheck={false}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^#[0-9a-fA-F]{6}$/.test(val) || /^#[0-9a-fA-F]{3}$/.test(val)) {
+                        dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color1: val } }, { commit: false });
+                      }
+                    }}
+                    onBlur={() => dispatch({ type: "COMMIT" })}
+                  />
+                </div>
               </div>
               <div className="field">
                 <label>Color 2</label>
-                <input type="color" value={cfg.color2} onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color2: e.target.value } }, { commit: false })} onBlur={() => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color2: cfg.color2 } })} />
+                <div className="color-field">
+                  <input
+                    type="color"
+                    value={cfg.color2 || "#2C5364"}
+                    onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color2: e.target.value } }, { commit: false })}
+                    onBlur={() => dispatch({ type: "COMMIT" })}
+                  />
+                  <input
+                    type="text"
+                    value={cfg.color2 || "#2C5364"}
+                    spellCheck={false}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^#[0-9a-fA-F]{6}$/.test(val) || /^#[0-9a-fA-F]{3}$/.test(val)) {
+                        dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { color2: val } }, { commit: false });
+                      }
+                    }}
+                    onBlur={() => dispatch({ type: "COMMIT" })}
+                  />
+                </div>
               </div>
             </div>
             {cfg.type === "linear" && (
               <div className="field">
                 <label>Angle</label>
                 <div className="range-row">
-                  <input type="range" min="0" max="360" value={cfg.angle || 90} onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { angle: +e.target.value } }, { commit: false })} onMouseUp={() => dispatch({ type: "NOOP" })} />
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={cfg.angle || 90}
+                    onChange={(e) => dispatch({ type: "SET_CANVAS_BACKGROUND", patch: { angle: +e.target.value } }, { commit: false })}
+                    onMouseUp={() => dispatch({ type: "COMMIT" })}
+                  />
                   <span className="range-val">{cfg.angle || 90}°</span>
                 </div>
               </div>
