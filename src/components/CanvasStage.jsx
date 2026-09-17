@@ -323,25 +323,37 @@ export default function CanvasStage({ containerRef }) {
                     listening={false}
                   />
                 )}
-                <Rect
-                  x={12}
-                  y={12}
-                  width={140}
-                  height={28}
-                  fill={i === activeIndex ? "#29D398" : "rgba(16,18,22,0.85)"}
-                  cornerRadius={6}
-                  listening={false}
-                />
-                <KText
-                  x={20}
-                  y={20}
-                  text={`${c.name}`}
-                  fill={i === activeIndex ? "#062018" : "#EEF0F4"}
-                  fontSize={13}
-                  fontFamily="Inter"
-                  fontStyle="bold"
-                  listening={false}
-                />
+                <Group
+                  onClick={(e) => {
+                    e.cancelBubble = true;
+                    dispatch({ type: "SWITCH_CANVAS", index: i }, { commit: false });
+                  }}
+                  onDblClick={(e) => {
+                    e.cancelBubble = true;
+                    dispatch({ type: "SWITCH_CANVAS", index: i }, { commit: false });
+                    setViewMode("single");
+                  }}
+                >
+                  <Rect
+                    x={12}
+                    y={12}
+                    width={140}
+                    height={28}
+                    fill={i === activeIndex ? "#29D398" : "rgba(16,18,22,0.85)"}
+                    cornerRadius={6}
+                    stroke={i === activeIndex ? "#29D398" : "rgba(255,255,255,0.2)"}
+                    strokeWidth={1}
+                  />
+                  <KText
+                    x={20}
+                    y={20}
+                    text={`${c.name}`}
+                    fill={i === activeIndex ? "#062018" : "#EEF0F4"}
+                    fontSize={13}
+                    fontFamily="Inter"
+                    fontStyle="bold"
+                  />
+                </Group>
               </Group>
             ))}
           </>

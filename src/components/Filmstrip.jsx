@@ -68,7 +68,7 @@ function Thumbnail({ canvas, index, project }) {
 }
 
 export default function Filmstrip() {
-  const { project, activeIndex, dispatch, showToast, deselect } = useApp();
+  const { project, activeIndex, dispatch, showToast, deselect, setViewMode } = useApp();
   const [addOpen, setAddOpen] = useState(false);
   const [renamingIndex, setRenamingIndex] = useState(null);
   const [renameText, setRenameText] = useState("");
@@ -76,6 +76,7 @@ export default function Filmstrip() {
   function switchCanvas(i) {
     deselect();
     dispatch({ type: "SWITCH_CANVAS", index: i }, { commit: false });
+    setViewMode("single");
   }
 
   function addCanvas(preset) {
@@ -151,18 +152,21 @@ export default function Filmstrip() {
         {project.canvases.map((c, i) => (
           <React.Fragment key={c.id}>
             {i > 0 && <div className={"fs-connector" + (project.connectBackground ? " on" : "")} />}
-            <div className={"fs-item" + (i === activeIndex ? " active" : "")}>
+            <div
+              className={"fs-item" + (i === activeIndex ? " active" : "")}
+              onClick={() => switchCanvas(i)}
+            >
               <div className="fs-thumb" onClick={() => switchCanvas(i)}>
                 <Thumbnail canvas={c} index={i} project={project} />
 
                 {/* Filmstrip action overlay */}
-                <div className="fs-overlay" onClick={(e) => e.stopPropagation()}>
-                  <div className="fs-actions-top">
+                <div className="fs-overlay" onClick={() => switchCanvas(i)}>
+                  <div className="fs-actions-top" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       className="fs-act-btn fs-dup-btn"
                       title="Duplicate screen"
-                      onClick={() => duplicateCanvas(i)}
+                      onClick={(e) => { e.stopPropagation(); duplicateCanvas(i); }}
                     >
                       ⧉
                     </button>
@@ -170,18 +174,18 @@ export default function Filmstrip() {
                       type="button"
                       className="fs-act-btn fs-del-btn"
                       title="Delete screen"
-                      onClick={() => deleteCanvas(i)}
+                      onClick={(e) => { e.stopPropagation(); deleteCanvas(i); }}
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="fs-actions-bottom">
+                  <div className="fs-actions-bottom" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       className="fs-act-btn"
                       title="Move screen left"
                       disabled={i === 0}
-                      onClick={() => moveCanvas(i, i - 1)}
+                      onClick={(e) => { e.stopPropagation(); moveCanvas(i, i - 1); }}
                     >
                       ◀
                     </button>
@@ -190,7 +194,7 @@ export default function Filmstrip() {
                       className="fs-act-btn"
                       title="Move screen right"
                       disabled={i === project.canvases.length - 1}
-                      onClick={() => moveCanvas(i, i + 1)}
+                      onClick={(e) => { e.stopPropagation(); moveCanvas(i, i + 1); }}
                     >
                       ▶
                     </button>
@@ -205,6 +209,7 @@ export default function Filmstrip() {
                   className="fs-name-input"
                   value={renameText}
                   autoFocus
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => setRenameText(e.target.value)}
                   onBlur={saveRename}
                   onKeyDown={(e) => {
@@ -215,8 +220,15 @@ export default function Filmstrip() {
               ) : (
                 <div
                   className="fs-name"
-                  title="Double click to rename"
-                  onDoubleClick={() => startRename(i, c.name)}
+                  title="Click to open, double-click to rename"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    switchCanvas(i);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    startRename(i, c.name);
+                  }}
                 >
                   {c.name}
                 </div>
