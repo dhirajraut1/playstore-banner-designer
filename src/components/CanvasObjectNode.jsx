@@ -1,6 +1,6 @@
 import React, { forwardRef } from "react";
 import { Rect, Ellipse, Line, RegularPolygon, Path, Text, Image as KImage, Group } from "react-konva";
-import { blobPath, wavePath, ICONS } from "../constants.js";
+import { blobPath, wavePath, starPolygonPath, hexagonPath, speechBubblePath, ICONS } from "../constants.js";
 import { useHtmlImage } from "../hooks/useHtmlImage.js";
 
 function shadowProps(obj) {
@@ -94,6 +94,197 @@ const DeviceMockup = forwardRef(function DeviceMockup({ obj, handlers }, ref) {
   );
 });
 
+// App Store Rating Component (Score + Stars + Review count)
+const RatingNode = forwardRef(function RatingNode({ obj, handlers }, ref) {
+  const w = obj.width || 340, h = obj.height || 100;
+  const radius = obj.cornerRadius ?? 20;
+  const score = obj.score || "4.9";
+  const count = obj.countText || "120K+ Reviews";
+  const category = obj.categoryText || "#1 in Productivity";
+  const starColor = obj.starColor || "#F5A623";
+
+  return (
+    <Group ref={ref} {...commonProps(obj, handlers)}>
+      <Rect
+        x={0} y={0} width={w} height={h} cornerRadius={radius}
+        fill={obj.fill || "#141722"}
+        stroke={obj.stroke || "rgba(255,255,255,0.18)"}
+        strokeWidth={obj.strokeWidth ?? 1}
+        {...shadowProps(obj)}
+      />
+      <Text
+        x={20} y={16}
+        text={score}
+        fontFamily="Space Grotesk"
+        fontSize={42}
+        fontStyle="bold"
+        fill={obj.textColor || "#ffffff"}
+      />
+      <Group x={108} y={20}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Path
+            key={i}
+            x={i * 22}
+            data={ICONS.star}
+            fill={starColor}
+            scaleX={18 / 24}
+            scaleY={18 / 24}
+          />
+        ))}
+      </Group>
+      <Text
+        x={108} y={44}
+        text={count}
+        fontFamily="Inter"
+        fontSize={14}
+        fontStyle="bold"
+        fill={obj.textColor || "#ffffff"}
+      />
+      <Text
+        x={22} y={68} width={w - 44}
+        text={category}
+        fontFamily="Inter"
+        fontSize={12}
+        fill="rgba(255,255,255,0.68)"
+      />
+    </Group>
+  );
+});
+
+// Feature / Testimonial / Notification Card
+const CardNode = forwardRef(function CardNode({ obj, handlers }, ref) {
+  const w = obj.width || 380, h = obj.height || 135;
+  const radius = obj.cornerRadius ?? 22;
+  const iconD = obj.icon && ICONS[obj.icon] ? ICONS[obj.icon] : ICONS.bolt;
+  const iconBg = obj.iconBg || "rgba(41, 211, 152, 0.16)";
+  const iconColor = obj.iconColor || "#29D398";
+  const title = obj.title || "Instant Cloud Backup";
+  const subtitle = obj.subtitle || "Keep your data safely backed up & synced everywhere.";
+  const badgeText = obj.badgeText;
+
+  return (
+    <Group ref={ref} {...commonProps(obj, handlers)}>
+      <Rect
+        x={0} y={0} width={w} height={h} cornerRadius={radius}
+        fill={obj.fill || "#161822"}
+        stroke={obj.stroke || "rgba(255,255,255,0.14)"}
+        strokeWidth={obj.strokeWidth ?? 1}
+        {...shadowProps(obj)}
+      />
+      <Group x={18} y={20}>
+        <Rect width={48} height={48} cornerRadius={12} fill={iconBg} />
+        <Path x={12} y={12} data={iconD} fill={iconColor} scaleX={1} scaleY={1} />
+      </Group>
+      <Text
+        x={80} y={20} width={w - 96}
+        text={title}
+        fontFamily="Space Grotesk"
+        fontSize={17}
+        fontStyle="bold"
+        fill={obj.textColor || "#ffffff"}
+      />
+      <Text
+        x={80} y={48} width={w - 96}
+        text={subtitle}
+        fontFamily="Inter"
+        fontSize={12.5}
+        lineHeight={1.35}
+        fill="rgba(255,255,255,0.72)"
+      />
+      {badgeText && (
+        <Group x={w - 74} y={16}>
+          <Rect width={58} height={20} cornerRadius={10} fill="rgba(255,255,255,0.12)" />
+          <Text width={58} y={3.5} text={badgeText} align="center" fontSize={9.5} fontStyle="bold" fill="#29D398" />
+        </Group>
+      )}
+    </Group>
+  );
+});
+
+// Badge Pill Node
+const BadgeNode = forwardRef(function BadgeNode({ obj, handlers }, ref) {
+  const w = obj.width || 280, h = obj.height || 54;
+  const radius = obj.cornerRadius ?? h / 2;
+  const iconD = obj.icon && ICONS[obj.icon] ? ICONS[obj.icon] : null;
+  const iconSize = Math.round(h * 0.44);
+  const textX = iconD ? 16 + iconSize + 10 : 18;
+  const textW = w - textX - 16;
+
+  return (
+    <Group ref={ref} {...commonProps(obj, handlers)}>
+      <Rect
+        x={0} y={0} width={w} height={h} cornerRadius={radius}
+        fill={obj.fill || "rgba(255,255,255,0.12)"}
+        stroke={obj.stroke || "rgba(255,255,255,0.22)"}
+        strokeWidth={obj.strokeWidth ?? 1}
+        {...shadowProps(obj)}
+      />
+      {iconD && (
+        <Group x={16} y={(h - iconSize) / 2}>
+          <Path
+            data={iconD}
+            fill={obj.iconColor || "#29D398"}
+            scaleX={iconSize / 24}
+            scaleY={iconSize / 24}
+          />
+        </Group>
+      )}
+      <Text
+        x={textX}
+        y={(h - (obj.fontSize || Math.round(h * 0.38))) / 2}
+        width={textW}
+        text={obj.text || "Badge Pill"}
+        fontFamily={obj.fontFamily || "Space Grotesk"}
+        fontSize={obj.fontSize || Math.round(h * 0.38)}
+        fontStyle={obj.fontWeight >= 700 ? "bold" : "600"}
+        fill={obj.textColor || "#ffffff"}
+        align={obj.align || "left"}
+        ellipsis={true}
+      />
+    </Group>
+  );
+});
+
+// App Store / Google Play Download Badge
+const StoreBadgeNode = forwardRef(function StoreBadgeNode({ obj, handlers }, ref) {
+  const w = obj.width || 210, h = obj.height || 62;
+  const isGooglePlay = obj.platform !== "appstore";
+
+  return (
+    <Group ref={ref} {...commonProps(obj, handlers)}>
+      <Rect
+        x={0} y={0} width={w} height={h} cornerRadius={12}
+        fill="#000000"
+        stroke="#4a5060"
+        strokeWidth={1}
+        {...shadowProps(obj)}
+      />
+      {isGooglePlay ? (
+        <>
+          <Path x={16} y={13} data="M3 2L15 12L3 22V2Z" fill="#00E676" scaleX={1.5} scaleY={1.5} />
+          <Path x={16} y={13} data="M3 2L10 16L15 12L3 2Z" fill="#00B0FF" scaleX={1.5} scaleY={1.5} />
+          <Path x={16} y={13} data="M3 22L10 8L15 12L3 22Z" fill="#FF1744" scaleX={1.5} scaleY={1.5} />
+          <Path x={16} y={13} data="M10 8L15 12L10 16L3 12L10 8Z" fill="#FFD600" scaleX={1.5} scaleY={1.5} />
+          <Text x={54} y={12} text="GET IT ON" fontSize={9} fontFamily="Inter" fill="#aaaaaa" />
+          <Text x={54} y={24} text="Google Play" fontSize={18} fontStyle="bold" fontFamily="Space Grotesk" fill="#ffffff" />
+        </>
+      ) : (
+        <>
+          <Path
+            x={16} y={12}
+            data="M15.5 13.5c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.57-2.73-1.78-3.32-1.8-1.41-.14-2.78.84-3.5.84-.73 0-1.85-.82-3.04-.8-1.55.02-3 1-3.8 2.39-1.63 2.82-.42 7 1.17 9.29.77 1.12 1.7 2.38 2.92 2.33 1.16-.04 1.6-.75 3.01-.75 1.4 0 1.8.75 3.02.73 1.24-.03 2.03-1.13 2.8-2.25.88-1.28 1.24-2.53 1.27-2.6-.03-.01-2.45-.94-2.49-3.73zM13.2 6.4c.64-.78 1.07-1.86.95-2.95-.92.04-2.03.61-2.69 1.39-.58.67-1.09 1.77-.95 2.83 1.02.08 2.05-.5 2.69-1.27z"
+            fill="#ffffff"
+            scaleX={1.5}
+            scaleY={1.5}
+          />
+          <Text x={54} y={12} text="Download on the" fontSize={9} fontFamily="Inter" fill="#aaaaaa" />
+          <Text x={54} y={24} text="App Store" fontSize={18} fontStyle="bold" fontFamily="Space Grotesk" fill="#ffffff" />
+        </>
+      )}
+    </Group>
+  );
+});
+
 const CanvasObjectNode = forwardRef(function CanvasObjectNode({ obj, handlers }, ref) {
   const img = useHtmlImage(obj.type === "image" ? obj.imageSrc : null);
   const props = commonProps(obj, handlers);
@@ -114,6 +305,12 @@ const CanvasObjectNode = forwardRef(function CanvasObjectNode({ obj, handlers },
       return <Path ref={ref} {...props} data={blobPath(obj.width, obj.height)} fill={obj.fill} />;
     case "wave":
       return <Path ref={ref} {...props} data={wavePath(obj.width, obj.height)} fill={obj.fill} />;
+    case "star5":
+      return <Path ref={ref} {...props} data={starPolygonPath(obj.width, obj.height)} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+    case "hexagon":
+      return <Path ref={ref} {...props} data={hexagonPath(obj.width, obj.height)} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+    case "speech":
+      return <Path ref={ref} {...props} data={speechBubblePath(obj.width, obj.height)} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
     case "icon":
       return (
         <Path
@@ -121,6 +318,14 @@ const CanvasObjectNode = forwardRef(function CanvasObjectNode({ obj, handlers },
           scaleX={(obj.width / 24) * (obj.scaleX || 1)} scaleY={(obj.height / 24) * (obj.scaleY || 1)}
         />
       );
+    case "badge":
+      return <BadgeNode ref={ref} obj={obj} handlers={handlers} />;
+    case "rating":
+      return <RatingNode ref={ref} obj={obj} handlers={handlers} />;
+    case "card":
+      return <CardNode ref={ref} obj={obj} handlers={handlers} />;
+    case "store_badge":
+      return <StoreBadgeNode ref={ref} obj={obj} handlers={handlers} />;
     case "text":
       if (obj.highlightOn) {
         return (

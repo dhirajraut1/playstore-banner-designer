@@ -366,6 +366,154 @@ function PropertiesPanel() {
         </>
       )}
 
+      {obj.type === "badge" && (
+        <>
+          <div className="divider" />
+          <div className="mini-label">Badge Pill Properties</div>
+          <div className="field">
+            <label>Text content</label>
+            <input type="text" value={obj.text || ""} onChange={(e) => patch({ text: e.target.value }, false)} onBlur={commit} />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Icon</label>
+              <select value={obj.icon || "star"} onChange={(e) => patch({ icon: e.target.value })}>
+                <option value="star">Star</option>
+                <option value="bolt">Bolt</option>
+                <option value="shield">Shield</option>
+                <option value="lock">Lock</option>
+                <option value="flame">Flame (Trending)</option>
+                <option value="trophy">Trophy</option>
+                <option value="sparkles">Sparkles</option>
+                <option value="check">Check</option>
+                <option value="heart">Heart</option>
+                <option value="arrow">Arrow</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Icon color</label>
+              <HexColorInput value={obj.iconColor || "#F5A623"} onChange={(c, shouldCommit) => patch({ iconColor: c }, shouldCommit)} onBlur={commit} />
+            </div>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Text color</label>
+              <HexColorInput value={obj.textColor || "#ffffff"} onChange={(c, shouldCommit) => patch({ textColor: c }, shouldCommit)} onBlur={commit} />
+            </div>
+            <div className="field">
+              <label>Background</label>
+              <HexColorInput value={obj.fill || "#161822"} onChange={(c, shouldCommit) => patch({ fill: c }, shouldCommit)} onBlur={commit} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {obj.type === "rating" && (
+        <>
+          <div className="divider" />
+          <div className="mini-label">App Rating Properties</div>
+          <div className="field-row">
+            <div className="field">
+              <label>Rating score</label>
+              <input type="text" value={obj.score || "4.9"} onChange={(e) => patch({ score: e.target.value }, false)} onBlur={commit} />
+            </div>
+            <div className="field">
+              <label>Star color</label>
+              <HexColorInput value={obj.starColor || "#F5A623"} onChange={(c, shouldCommit) => patch({ starColor: c }, shouldCommit)} onBlur={commit} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Review count text</label>
+            <input type="text" value={obj.countText || "120K+ Reviews"} onChange={(e) => patch({ countText: e.target.value }, false)} onBlur={commit} />
+          </div>
+          <div className="field">
+            <label>Category / Award</label>
+            <input type="text" value={obj.categoryText || "#1 In Productivity"} onChange={(e) => patch({ categoryText: e.target.value }, false)} onBlur={commit} />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Text color</label>
+              <HexColorInput value={obj.textColor || "#ffffff"} onChange={(c, shouldCommit) => patch({ textColor: c }, shouldCommit)} onBlur={commit} />
+            </div>
+            <div className="field">
+              <label>Card background</label>
+              <HexColorInput value={obj.fill || "#141722"} onChange={(c, shouldCommit) => patch({ fill: c }, shouldCommit)} onBlur={commit} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {obj.type === "card" && (
+        <>
+          <div className="divider" />
+          <div className="mini-label">Feature Card Properties</div>
+          <div className="field">
+            <label>Title</label>
+            <input type="text" value={obj.title || ""} onChange={(e) => patch({ title: e.target.value }, false)} onBlur={commit} />
+          </div>
+          <div className="field">
+            <label>Subtitle / Body</label>
+            <textarea rows={2} value={obj.subtitle || ""} onChange={(e) => patch({ subtitle: e.target.value }, false)} onBlur={commit} />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Tag badge text</label>
+              <input type="text" value={obj.badgeText || ""} placeholder="e.g. NEW or 5.0 ★" onChange={(e) => patch({ badgeText: e.target.value }, false)} onBlur={commit} />
+            </div>
+            <div className="field">
+              <label>Icon</label>
+              <select value={obj.icon || "bolt"} onChange={(e) => patch({ icon: e.target.value })}>
+                <option value="bolt">Bolt (Instant)</option>
+                <option value="shield">Shield (Security)</option>
+                <option value="sparkles">Sparkles (AI)</option>
+                <option value="chart">Chart (Analytics)</option>
+                <option value="bell">Bell (Alert)</option>
+                <option value="lock">Lock (Private)</option>
+                <option value="star">Star</option>
+                <option value="trophy">Trophy</option>
+                <option value="check">Check</option>
+              </select>
+            </div>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Icon accent</label>
+              <HexColorInput value={obj.iconColor || "#29D398"} onChange={(c, shouldCommit) => patch({ iconColor: c }, shouldCommit)} onBlur={commit} />
+            </div>
+            <div className="field">
+              <label>Background</label>
+              <HexColorInput value={obj.fill || "#161822"} onChange={(c, shouldCommit) => patch({ fill: c }, shouldCommit)} onBlur={commit} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {obj.type === "store_badge" && (
+        <>
+          <div className="divider" />
+          <div className="mini-label">Store Download Badge</div>
+          <div className="field">
+            <label>Platform</label>
+            <div className="seg">
+              <button
+                type="button"
+                className={obj.platform !== "appstore" ? "active" : ""}
+                onClick={() => patch({ platform: "play" })}
+              >
+                Google Play
+              </button>
+              <button
+                type="button"
+                className={obj.platform === "appstore" ? "active" : ""}
+                onClick={() => patch({ platform: "appstore" })}
+              >
+                App Store
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="divider" />
       <div className="toggle-row">
         <label>Shadow</label>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../state/store.jsx";
 import { baseObject, uid, ICONS, SOLID_PALETTE, GRADIENT_PRESETS, TEMPLATES, MAX_SCREENS } from "../constants.js";
 import { MULTI_TEMPLATES, buildMultiTemplateProject } from "../multiTemplates.js";
+import { VIDEO_TEMPLATES, buildVideoTemplateProject } from "../videoTemplates.js";
 
 function IconSvg({ path, size = 20 }) {
   return (
@@ -15,6 +16,9 @@ const BASIC_SHAPES = [
   ["rect", "Square", "M4 4h16v16H4z"],
   ["rrect", "Rounded", "M4 8a4 4 0 014-4h8a4 4 0 014 4v8a4 4 0 01-4 4H8a4 4 0 01-4-4z"],
   ["circle", "Circle", "M12 21a9 9 0 100-18 9 9 0 000 18Z"],
+  ["star5", "Star", "M12 2l2.9 6.6 7.1.7-5.4 4.7 1.6 7-6.2-3.8-6.2 3.8 1.6-7L2 9.3l7.1-.7L12 2z"],
+  ["hexagon", "Hexagon", "M12 2l8 4.5v9L12 20l-8-4.5v-9z"],
+  ["speech", "Bubble", "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
   ["triangle", "Triangle", "M12 3l9 18H3z"],
   ["line", "Line", "M3 12h18"],
 ];
@@ -25,9 +29,14 @@ const ABSTRACT_SHAPES = [
 
 export default function LeftSidebar() {
   const [tab, setTab] = useState("shapes");
-  const { project, activeCanvas, dispatch, select, deselect, selection, selectedObject, selectedIsShared, showToast } = useApp();
+  const [templateFilter, setTemplateFilter] = useState("multi"); // 'multi' | 'video' | 'single'
+  const {
+    project, activeCanvas, dispatch, select, deselect, selection, selectedObject, selectedIsShared, showToast,
+    appMode, setAppMode, setVideoSoundtrack, setIsPlaying, setVideoTime,
+  } = useApp();
   const [uploads, setUploads] = useState([]);
   const [confirmMulti, setConfirmMulti] = useState(null); // multi-template pending confirmation
+  const [confirmVideo, setConfirmVideo] = useState(null); // video-template pending confirmation
 
   function addObject(partial) {
     const obj = baseObject(partial, activeCanvas);
@@ -41,12 +50,93 @@ export default function LeftSidebar() {
       rect: { type: "rect", x: cx - 90, y: cy - 90, width: 180, height: 180, fill: "#29D398" },
       rrect: { type: "rect", x: cx - 90, y: cy - 90, width: 180, height: 180, cornerRadius: 28, fill: "#1A8FBF" },
       circle: { type: "circle", x: cx - 90, y: cy - 90, width: 180, height: 180, fill: "#7C5CFF" },
+      star5: { type: "star5", x: cx - 80, y: cy - 80, width: 160, height: 160, fill: "#F5A623" },
+      hexagon: { type: "hexagon", x: cx - 80, y: cy - 80, width: 160, height: 160, fill: "#7C5CFF" },
+      speech: { type: "speech", x: cx - 120, y: cy - 70, width: 240, height: 140, fill: "#29D398" },
       line: { type: "line", x: cx - 100, y: cy, width: 200, height: 6, fill: "#F5A623", strokeWidth: 8 },
       triangle: { type: "triangle", x: cx - 90, y: cy - 90, width: 180, height: 180, fill: "#FF6161" },
       blob: { type: "blob", x: cx - 100, y: cy - 100, width: 200, height: 200, fill: "#29D398", opacity: 0.9 },
       wave: { type: "wave", x: cx - 160, y: cy - 40, width: 320, height: 80, fill: "#1A8FBF" },
     };
     addObject(map[kind] || map.rect);
+  }
+
+  function addRatingCard(cfg = {}) {
+    const c = activeCanvas;
+    const w = 340, h = 100;
+    addObject({
+      type: "rating",
+      x: (c.width - w) / 2,
+      y: c.height * 0.16,
+      width: w,
+      height: h,
+      score: cfg.score || "4.9",
+      countText: cfg.countText || "120K+ Reviews",
+      categoryText: cfg.categoryText || "#1 In Productivity",
+      starColor: cfg.starColor || "#F5A623",
+      fill: cfg.fill || "#141722",
+      textColor: "#ffffff",
+      stroke: "rgba(255,255,255,0.18)",
+      shadow: { on: true, color: "#000000", blur: 24, x: 0, y: 10, opacity: 0.35 },
+    });
+    showToast("Added Rating Card");
+  }
+
+  function addFeatureCard(cfg = {}) {
+    const c = activeCanvas;
+    const w = 380, h = 135;
+    addObject({
+      type: "card",
+      x: (c.width - w) / 2,
+      y: c.height * 0.22,
+      width: w,
+      height: h,
+      title: cfg.title || "Instant Cloud Backup",
+      subtitle: cfg.subtitle || "Keep your data safely backed up & synced everywhere.",
+      icon: cfg.icon || "bolt",
+      iconColor: cfg.iconColor || "#29D398",
+      iconBg: cfg.iconBg || "rgba(41,211,152,0.16)",
+      badgeText: cfg.badgeText || "NEW",
+      fill: cfg.fill || "#161822",
+      textColor: "#ffffff",
+      stroke: "rgba(255,255,255,0.14)",
+      shadow: { on: true, color: "#000000", blur: 28, x: 0, y: 12, opacity: 0.35 },
+    });
+    showToast("Added Feature Card");
+  }
+
+  function addBadgePill(cfg = {}) {
+    const c = activeCanvas;
+    const w = cfg.width || 280, h = 54;
+    addObject({
+      type: "badge",
+      x: (c.width - w) / 2,
+      y: c.height * 0.12,
+      width: w,
+      height: h,
+      text: cfg.text || "★ 4.9 (100K+ Reviews)",
+      icon: cfg.icon || "star",
+      iconColor: cfg.iconColor || "#F5A623",
+      fill: cfg.fill || "rgba(255,255,255,0.12)",
+      stroke: cfg.stroke || "rgba(255,255,255,0.22)",
+      textColor: cfg.textColor || "#ffffff",
+      shadow: { on: false },
+    });
+    showToast("Added Badge Pill");
+  }
+
+  function addStoreBadge(platform = "play") {
+    const c = activeCanvas;
+    const w = 220, h = 64;
+    addObject({
+      type: "store_badge",
+      platform,
+      x: (c.width - w) / 2,
+      y: c.height * 0.82,
+      width: w,
+      height: h,
+    });
+    showToast(platform === "play" ? "Added Google Play Badge" : "Added App Store Badge");
   }
   function addIconAsset(name) {
     addObject({ type: "icon", icon: name, x: activeCanvas.width / 2 - 40, y: activeCanvas.height / 2 - 40, width: 80, height: 80, fill: "#ffffff" });
@@ -135,11 +225,27 @@ export default function LeftSidebar() {
     showToast(`Applied "${t.name}" — ${built.canvases.length} screens, with a synced logo you can restyle from any screen`);
   }
 
+  function applyVideoTemplate(v) {
+    const built = buildVideoTemplateProject(v.id);
+    if (!built) return;
+    deselect();
+    dispatch({ type: "LOAD_PROJECT", project: built });
+    setConfirmVideo(null);
+    setAppMode("video");
+    if (built.soundtrack) {
+      setVideoSoundtrack({ ...built.soundtrack, muted: false });
+    }
+    setVideoTime(0);
+    setIsPlaying(true);
+    showToast(`Loaded "${v.name}" Promo Video Template!`);
+  }
+
   return (
     <div id="left">
       <div id="left-tabs">
         {[
-          ["shapes", "Shapes", "M3 3h8v8H3zM17 7a4 4 0 100 8 4 4 0 000-8zM3 21l6-11 6 11H3z"],
+          ["shapes", "Shapes & Icons", "M3 3h8v8H3zM17 7a4 4 0 100 8 4 4 0 000-8zM3 21l6-11 6 11H3z"],
+          ["components", "Components & Badges", "M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"],
           ["text", "Text", "M4 6h16M12 6v14M8 20h8"],
           ["bg", "Backgrounds", "M3 3h18v18H3zM3 16l5-5 4 4 5-6 4 5"],
           ["device", "Device mockups", "M7 2h10v20H7zM11 18h2"],
@@ -170,13 +276,119 @@ export default function LeftSidebar() {
                 </div>
               ))}
             </div>
-            <div className="section-title">Icons</div>
+            <div className="section-title">Icons ({Object.keys(ICONS).length})</div>
             <div className="grid-3">
               {Object.entries(ICONS).map(([name, path]) => (
                 <div key={name} className="asset-btn" onClick={() => addIconAsset(name)}>
                   <IconSvg path={path} /><span>{name}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "components" && (
+          <div className="panel-scroll">
+            <div className="section-title">⭐ App Store Ratings</div>
+            <div
+              className="tpl-card"
+              onClick={() => addRatingCard({ score: "4.9", countText: "120K+ Reviews", categoryText: "#1 In Productivity" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: "var(--accent)" }}>4.9 ★★★★★</span>
+                <span style={{ fontSize: 11, color: "var(--text-2)" }}>120K+ Reviews</span>
+              </div>
+              <div className="tpl-desc" style={{ marginTop: 4 }}>High-converting 5-star social proof card</div>
+            </div>
+
+            <div
+              className="tpl-card"
+              onClick={() => addRatingCard({ score: "5.0", countText: "50,000+ Ratings", categoryText: "🏆 Editor's Choice 2026", starColor: "#FFD200" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: "#FFD200" }}>5.0 ★★★★★</span>
+                <span style={{ fontSize: 11, color: "var(--text-2)" }}>Top Rated</span>
+              </div>
+              <div className="tpl-desc" style={{ marginTop: 4 }}>Editor's Choice rating spotlight</div>
+            </div>
+
+            <div className="section-title" style={{ marginTop: 14 }}>💳 Feature &amp; Notification Cards</div>
+            <div
+              className="tpl-card"
+              onClick={() => addFeatureCard({ title: "Instant Cloud Sync", subtitle: "Real-time synchronization across all devices.", icon: "bolt", badgeText: "FAST" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚡</span>
+                <span className="tpl-name" style={{ margin: 0 }}>Instant Cloud Sync</span>
+              </div>
+              <div className="tpl-desc">Glassmorphic feature callout card</div>
+            </div>
+
+            <div
+              className="tpl-card"
+              onClick={() => addFeatureCard({ title: "Live Insights & Stats", subtitle: "Track key metrics & trends in real time.", icon: "chart", iconColor: "#5B8CFF", iconBg: "rgba(91,140,255,0.2)", badgeText: "LIVE" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>📊</span>
+                <span className="tpl-name" style={{ margin: 0 }}>Live Metrics &amp; Stats</span>
+              </div>
+              <div className="tpl-desc">Performance analytics badge card</div>
+            </div>
+
+            <div
+              className="tpl-card"
+              onClick={() => addFeatureCard({ title: "🔔 $450.00 Received", subtitle: "Instant zero-fee transfer from Alex.", icon: "bell", iconColor: "#29D398", iconBg: "rgba(41,211,152,0.2)", badgeText: "NOW" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>🔔</span>
+                <span className="tpl-name" style={{ margin: 0 }}>Push Notification Pill</span>
+              </div>
+              <div className="tpl-desc">Realistic mobile push notification banner</div>
+            </div>
+
+            <div
+              className="tpl-card"
+              onClick={() => addFeatureCard({ title: "“Best app of the year!”", subtitle: "“Clean, fast, and saves me hours every single week.” — Alex M.", icon: "user", iconColor: "#7C5CFF", iconBg: "rgba(124,92,255,0.2)", badgeText: "5.0 ★" })}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>💬</span>
+                <span className="tpl-name" style={{ margin: 0 }}>User Testimonial Review</span>
+              </div>
+              <div className="tpl-desc">Customer quote &amp; avatar review card</div>
+            </div>
+
+            <div className="section-title" style={{ marginTop: 14 }}>🛡️ Badges &amp; Trust Pills</div>
+            <div className="grid-2">
+              <div className="asset-btn" style={{ padding: 10 }} onClick={() => addBadgePill({ text: "🔒 256-Bit Encrypted", icon: "lock", iconColor: "#29D398" })}>
+                <span style={{ fontSize: 11 }}>🔒 Security Shield</span>
+              </div>
+              <div className="asset-btn" style={{ padding: 10 }} onClick={() => addBadgePill({ text: "🛡️ Play Protect Verified", icon: "shield", iconColor: "#5B8CFF" })}>
+                <span style={{ fontSize: 11 }}>🛡️ Play Protect</span>
+              </div>
+              <div className="asset-btn" style={{ padding: 10 }} onClick={() => addBadgePill({ text: "✓ 100% Free · No Ads", icon: "check", iconColor: "#29D398" })}>
+                <span style={{ fontSize: 11 }}>✓ Ad-Free Pill</span>
+              </div>
+              <div className="asset-btn" style={{ padding: 10 }} onClick={() => addBadgePill({ text: "🚀 10M+ Downloads", icon: "star", iconColor: "#F5A623" })}>
+                <span style={{ fontSize: 11 }}>🚀 10M+ Users</span>
+              </div>
+            </div>
+
+            <div className="section-title" style={{ marginTop: 14 }}>📱 Store Download Badges</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="asset-btn" style={{ padding: "10px 14px", flexDirection: "row", justifyContent: "flex-start", gap: 10 }} onClick={() => addStoreBadge("play")}>
+                <span style={{ fontSize: 20 }}>▶</span>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: 9, color: "var(--text-2)" }}>GET IT ON</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>Google Play</div>
+                </div>
+              </div>
+              <div className="asset-btn" style={{ padding: "10px 14px", flexDirection: "row", justifyContent: "flex-start", gap: 10 }} onClick={() => addStoreBadge("appstore")}>
+                <span style={{ fontSize: 20 }}></span>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: 9, color: "var(--text-2)" }}>Download on the</div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>App Store</div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -274,26 +486,79 @@ export default function LeftSidebar() {
 
         {tab === "templates" && (
           <div className="panel-scroll">
-            <div className="section-title">Multi-screen sets (up to {MAX_SCREENS})</div>
-            <div style={{ fontSize: 10.5, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 10 }}>
-              Generates a full set of screens with a shared logo and consistent style — different shapes, icons, gradients and device tilts across the set. Replaces all current screens.
+            <div className="seg" style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={templateFilter === "multi" ? "active" : ""}
+                onClick={() => setTemplateFilter("multi")}
+              >
+                🎨 Listing Sets
+              </button>
+              <button
+                type="button"
+                className={templateFilter === "video" ? "active" : ""}
+                onClick={() => setTemplateFilter("video")}
+              >
+                🎬 Video Templates
+              </button>
+              <button
+                type="button"
+                className={templateFilter === "single" ? "active" : ""}
+                onClick={() => setTemplateFilter("single")}
+              >
+                Single Style
+              </button>
             </div>
-            {MULTI_TEMPLATES.map((t) => (
-              <div key={t.id} className="tpl-card" onClick={() => setConfirmMulti(t)}>
-                <div className="tpl-swatch" style={{ background: t.swatch }} />
-                <div className="tpl-name">{t.name}</div>
-                <div className="tpl-desc">{t.tagline}</div>
-              </div>
-            ))}
 
-            <div className="section-title">Single-screen styles</div>
-            {TEMPLATES.map((t) => (
-              <div key={t.name} className="tpl-card" onClick={() => applyTemplate(t)}>
-                <div className="tpl-swatch" style={{ background: `linear-gradient(120deg, ${t.bg.c1}, ${t.bg.c2})` }} />
-                <div className="tpl-name">{t.name}</div>
-                <div className="tpl-desc">{t.desc}</div>
-              </div>
-            ))}
+            {templateFilter === "video" && (
+              <>
+                <div className="section-title">Animated Promo Video Templates</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 10 }}>
+                  Full multi-scene animated video projects with pre-configured entrance motions, continuous float/pulse loops, and synchronized electronic soundtracks.
+                </div>
+                {VIDEO_TEMPLATES.map((v) => (
+                  <div key={v.id} className="tpl-card" onClick={() => setConfirmVideo(v)}>
+                    <div className="tpl-swatch" style={{ background: v.swatch }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div className="tpl-name">{v.name}</div>
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.2)", color: "#818cf8", fontWeight: 600 }}>
+                        {v.scenes.length} scenes · {v.soundtrack.title}
+                      </span>
+                    </div>
+                    <div className="tpl-desc">{v.tagline}</div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {templateFilter === "multi" && (
+              <>
+                <div className="section-title">Multi-screen sets ({MULTI_TEMPLATES.length} templates)</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-2)", lineHeight: 1.5, marginBottom: 10 }}>
+                  Generates a full set of screens with a shared logo and consistent style — different shapes, icons, gradients and device tilts across the set.
+                </div>
+                {MULTI_TEMPLATES.map((t) => (
+                  <div key={t.id} className="tpl-card" onClick={() => setConfirmMulti(t)}>
+                    <div className="tpl-swatch" style={{ background: t.swatch }} />
+                    <div className="tpl-name">{t.name}</div>
+                    <div className="tpl-desc">{t.tagline}</div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {templateFilter === "single" && (
+              <>
+                <div className="section-title">Single-screen styles</div>
+                {TEMPLATES.map((t) => (
+                  <div key={t.name} className="tpl-card" onClick={() => applyTemplate(t)}>
+                    <div className="tpl-swatch" style={{ background: `linear-gradient(120deg, ${t.bg.c1}, ${t.bg.c2})` }} />
+                    <div className="tpl-name">{t.name}</div>
+                    <div className="tpl-desc">{t.desc}</div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -309,6 +574,21 @@ export default function LeftSidebar() {
             <div className="modal-actions">
               <button className="btn" onClick={() => setConfirmMulti(null)}>Cancel</button>
               <button className="btn primary" onClick={() => applyMultiTemplate(confirmMulti)}>Replace screens</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmVideo && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setConfirmVideo(null); }}>
+          <div className="modal">
+            <h3>Load "{confirmVideo.name}"?</h3>
+            <div style={{ fontSize: 12.5, color: "var(--text-1)", lineHeight: 1.6 }}>
+              This loads a complete {confirmVideo.scenes.length}-scene animated promo video project with {confirmVideo.soundtrack.title} soundtrack and switches into the Promo Video Studio.
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setConfirmVideo(null)}>Cancel</button>
+              <button className="btn primary" onClick={() => applyVideoTemplate(confirmVideo)}>Load Video Template</button>
             </div>
           </div>
         </div>
