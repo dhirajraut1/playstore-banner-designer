@@ -221,6 +221,13 @@ function reducer(state, action) {
       };
     }
 
+    case "SET_CANVAS_VIDEO_PROPS": {
+      const canvases = project.canvases.map((c, i) =>
+        i !== activeIndex ? c : { ...c, ...action.patch }
+      );
+      return { ...state, project: { ...project, canvases } };
+    }
+
     case "COMMIT":
       return { ...state };
 
@@ -300,6 +307,24 @@ export function AppProvider({ children }) {
   const [clipboard, setClipboard] = useState(null);
   const [toast, setToastState] = useState("");
   const [savedText, setSavedText] = useState("Saved locally");
+
+  // Promo Video Studio State
+  const [appMode, setAppMode] = useState("designer"); // 'designer' | 'video'
+  const [videoTime, setVideoTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoSoundtrack, setVideoSoundtrack] = useState({
+    id: "upbeat",
+    title: "Upbeat Tech",
+    volume: 0.8,
+    muted: false,
+    customUrl: null,
+  });
+  const [videoFormat, setVideoFormat] = useState({
+    id: "16-9",
+    name: "16:9 Landscape",
+    w: 1920,
+    h: 1080,
+  });
   const toastTimer = useRef(null);
   const autosaveTimer = useRef(null);
   const exportRefs = useRef({});
@@ -382,6 +407,11 @@ export function AppProvider({ children }) {
     selection, selectedObject, selectedIsShared, select, deselect,
     zoom, setZoom, gridSnap, setGridSnap,
     viewMode, setViewMode,
+    appMode, setAppMode,
+    videoTime, setVideoTime,
+    isPlaying, setIsPlaying,
+    videoSoundtrack, setVideoSoundtrack,
+    videoFormat, setVideoFormat,
     clipboard, setClipboard,
     toast, showToast, savedText,
     listSavedProjects, deleteSavedProject, loadProject, startNewProject,

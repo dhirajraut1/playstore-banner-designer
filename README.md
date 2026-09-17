@@ -57,9 +57,27 @@ src/
 - Export current screen or all screens as a ZIP, at 1×/2×/3×, PNG or JPG
 - Duplicate a fully-designed screen from the filmstrip to build a matching set
 
+## Deployment (Cloudflare Workers via GitHub Actions)
+
+Flowbanner is configured to automatically deploy to **Cloudflare Workers** (with Static Assets) via GitHub Actions whenever changes are pushed to the `main` branch.
+
+### Setting up GitHub Secrets:
+In your GitHub repository, navigate to **Settings** → **Secrets and variables** → **Actions** and add:
+1. `CLOUDFLARE_API_TOKEN` *(Required)*: A Cloudflare API token with **Account: Cloudflare Workers: Edit** permissions.
+2. `CLOUDFLARE_ACCOUNT_ID` *(Optional)*: Your Cloudflare Account ID (found on the right sidebar of the Cloudflare dashboard).
+
+### Manual or Local Deployment:
+You can also deploy manually at any time using Wrangler:
+```bash
+pnpm run deploy
+# or
+npx wrangler deploy
+```
+
 ## Notes / intentional scope
 
 This is a focused rebuild of a larger spec. A few secondary features from the
 original brief (object-level blur filter, rulers/smart guides, group/ungroup,
 a large SVG icon/pattern library, tablet-specific chrome variants) were left
 out to keep the codebase clean — happy to add any of them back on request.
+

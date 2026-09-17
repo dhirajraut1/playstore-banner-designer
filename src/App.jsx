@@ -8,16 +8,23 @@ import Filmstrip from "./components/Filmstrip.jsx";
 import CanvasStage from "./components/CanvasStage.jsx";
 import ExportHiddenStages from "./components/ExportHiddenStages.jsx";
 import { ExportModal, ProjectsModal, PreviewModal } from "./components/Modals.jsx";
+import VideoCanvasStage from "./components/VideoCanvasStage.jsx";
+import VideoTimeline from "./components/VideoTimeline.jsx";
+import VideoPropertiesPanel from "./components/VideoPropertiesPanel.jsx";
+import VideoExportModal from "./components/VideoExportModal.jsx";
 
 export default function App() {
   const {
     activeCanvas, project, selection, selectedObject, selectedIsShared, dispatch, deselect,
     zoom, setZoom, gridSnap, setGridSnap, viewMode, setViewMode,
     clipboard, setClipboard, undo, redo, toast, showToast, select,
+    appMode, setAppMode, isPlaying, setIsPlaying, videoTime, setVideoTime,
+    videoFormat, setVideoFormat,
   } = useApp();
 
   const scrollRef = useRef(null);
-  const [modal, setModal] = useState(null); // 'export' | 'projects' | 'preview' | null
+  const videoStageRef = useRef(null);
+  const [modal, setModal] = useState(null); // 'export' | 'projects' | 'preview' | 'video-export' | null
   const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
   function alignH() {
@@ -121,6 +128,11 @@ export default function App() {
         }
         return;
       }
+      if (e.code === "Space" && appMode === "video") {
+        e.preventDefault();
+        setIsPlaying((p) => !p);
+        return;
+      }
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         if (selectedObject) {
@@ -145,7 +157,7 @@ export default function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedObject, selectedIsShared, selection, clipboard, dispatch, deselect, setZoom, setClipboard, undo, redo]);
+  }, [selectedObject, selectedIsShared, selection, clipboard, dispatch, deselect, setZoom, setClipboard, undo, redo, appMode, setIsPlaying]);
 
   return (
     <div id="app">
@@ -153,61 +165,102 @@ export default function App() {
         onOpenProjects={() => setModal("projects")}
         onOpenPreview={() => setModal("preview")}
         onOpenExport={() => setModal("export")}
+        onOpenVideoExport={() => setModal("video-export")}
       />
       <div id="main">
         <LeftSidebar />
         <div id="center">
-          <div id="canvas-toolbar">
-            <button type="button" className="icon-btn" title="Zoom out" onClick={() => setZoom((z) => Math.max(0.15, z - 0.1))}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M8 11h6" /></svg>
-            </button>
-            <div className="zoom-readout">{Math.round(zoom * 100)}%</div>
-            <button type="button" className="icon-btn" title="Zoom in" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" /></svg>
-            </button>
-            <button type="button" className="icon-btn" title="Fit to view" onClick={() => setZoom(1)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
-            </button>
-            <div className="topbar-sep" />
-            <div
-              className={"pill-toggle" + (gridSnap ? " on" : "")}
-              tabIndex={0}
-              role="switch"
-              aria-checked={gridSnap}
-              onClick={() => setGridSnap((v) => !v)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setGridSnap((v) => !v); } }}
-            >
-              <div className="switch" />Snap to grid
-            </div>
+          {appMode === "video" ? (
+            <div id="canvas-toolbar">
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+                <span>🎬</span> Promo Video Studio
+              </div>
+              <div className="topbar-sep" />
+              <div className="field-row" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--text-2)" }}>Aspect Ratio:</span>
+                <div className="seg">
+                  <button
+                    type="button"
+                    className={videoFormat?.id === "16-9" ? "active" : ""}
+                    onClick={() => setVideoFormat({ id: "16-9", name: "16:9 Landscape", w: 1920, h: 1080 })}
+                  >
+                    16:9 Landscape (1080p)
+                  </button>
+                  <button
+                    type="button"
+                    className={videoFormat?.id === "9-16" ? "active" : ""}
+                    onClick={() => setVideoFormat({ id: "9-16", name: "9:16 Portrait", w: 1080, h: 1920 })}
+                  >
+                    9:16 Reel / Shorts
+                  </button>
+                  <button
+                    type="button"
+                    className={videoFormat?.id === "1-1" ? "active" : ""}
+                    onClick={() => setVideoFormat({ id: "1-1", name: "1:1 Square", w: 1080, h: 1080 })}
+                  >
+                    1:1 Square
+                  </button>
+                </div>
+              </div>
 
-            {/* View Mode Switcher: Single vs Panorama */}
-            <div className="seg" style={{ marginLeft: 8 }}>
-              <button
-                type="button"
-                className={viewMode === "single" ? "active" : ""}
-                onClick={() => setViewMode("single")}
-                title="View active screen"
-              >
-                Single Screen
+              <div className="spacer" />
+              <div style={{ fontSize: 11, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 6 }}>
+                <kbd style={{ background: "var(--bg-3)", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", fontSize: 10 }}>Space</kbd> Play / Pause
+              </div>
+            </div>
+          ) : (
+            <div id="canvas-toolbar">
+              <button type="button" className="icon-btn" title="Zoom out" onClick={() => setZoom((z) => Math.max(0.15, z - 0.1))}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M8 11h6" /></svg>
               </button>
-              <button
-                type="button"
-                className={viewMode === "panorama" ? "active" : ""}
-                onClick={() => setViewMode("panorama")}
-                title="View all screens connected side-by-side"
+              <div className="zoom-readout">{Math.round(zoom * 100)}%</div>
+              <button type="button" className="icon-btn" title="Zoom in" onClick={() => setZoom((z) => Math.min(3, z + 0.1))}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" /></svg>
+              </button>
+              <button type="button" className="icon-btn" title="Fit to view" onClick={() => setZoom(1)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+              </button>
+              <div className="topbar-sep" />
+              <div
+                className={"pill-toggle" + (gridSnap ? " on" : "")}
+                tabIndex={0}
+                role="switch"
+                aria-checked={gridSnap}
+                onClick={() => setGridSnap((v) => !v)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setGridSnap((v) => !v); } }}
               >
-                Panorama Strip
+                <div className="switch" />Snap to grid
+              </div>
+
+              {/* View Mode Switcher: Single vs Panorama */}
+              <div className="seg" style={{ marginLeft: 8 }}>
+                <button
+                  type="button"
+                  className={viewMode === "single" ? "active" : ""}
+                  onClick={() => setViewMode("single")}
+                  title="View active screen"
+                >
+                  Single Screen
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === "panorama" ? "active" : ""}
+                  onClick={() => setViewMode("panorama")}
+                  title="View all screens connected side-by-side"
+                >
+                  Panorama Strip
+                </button>
+              </div>
+
+              <div className="spacer" />
+              <button type="button" className="icon-btn" title="Center horizontally" onClick={alignH} disabled={!selectedObject}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20" /><rect x="7" y="6" width="10" height="5" rx="1" /><rect x="4" y="14" width="16" height="5" rx="1" /></svg>
+              </button>
+              <button type="button" className="icon-btn" title="Center vertically" onClick={alignV} disabled={!selectedObject}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20" /><rect x="6" y="7" width="5" height="10" rx="1" /><rect x="14" y="4" width="5" height="16" rx="1" /></svg>
               </button>
             </div>
-
-            <div className="spacer" />
-            <button type="button" className="icon-btn" title="Center horizontally" onClick={alignH} disabled={!selectedObject}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20" /><rect x="7" y="6" width="10" height="5" rx="1" /><rect x="4" y="14" width="16" height="5" rx="1" /></svg>
-            </button>
-            <button type="button" className="icon-btn" title="Center vertically" onClick={alignV} disabled={!selectedObject}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h20" /><rect x="6" y="7" width="5" height="10" rx="1" /><rect x="14" y="4" width="5" height="16" rx="1" /></svg>
-            </button>
-          </div>
+          )}
 
           <div
             id="stage-scroll"
@@ -219,21 +272,28 @@ export default function App() {
           >
             <div id="stage-wrap">
               <div className="canvas-label">
-                {viewMode === "panorama"
+                {appMode === "video"
+                  ? `Live Promo Video Preview — ${videoFormat?.name || "16:9 Landscape"} (${videoFormat?.w}×${videoFormat?.h})`
+                  : viewMode === "panorama"
                   ? `Panorama Flow — ${project.canvases.length} screens continuous strip`
                   : `${activeCanvas.name} — ${activeCanvas.width}×${activeCanvas.height}`}
               </div>
-              <CanvasStage containerRef={scrollRef} />
+              {appMode === "video" ? (
+                <VideoCanvasStage containerRef={scrollRef} stageRef={videoStageRef} />
+              ) : (
+                <CanvasStage containerRef={scrollRef} />
+              )}
             </div>
           </div>
-          <Filmstrip />
+          {appMode === "video" ? <VideoTimeline /> : <Filmstrip />}
         </div>
-        <RightSidebar />
+        {appMode === "video" ? <VideoPropertiesPanel /> : <RightSidebar />}
       </div>
 
       <ExportHiddenStages />
 
       {modal === "export" && <ExportModal onClose={() => setModal(null)} />}
+      {modal === "video-export" && <VideoExportModal onClose={() => setModal(null)} videoStageRef={videoStageRef} />}
       {modal === "projects" && <ProjectsModal onClose={() => setModal(null)} />}
       {modal === "preview" && <PreviewModal onClose={() => setModal(null)} />}
 
